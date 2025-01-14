@@ -1,0 +1,171 @@
+---
+title: "TAREA 4"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```
+
+```
+
+### 1. Construir un bosque aleatorio (RandomForest) con 50 árboles para clasificar los dígitos. ¿Cuál es el porcentaje de error de clasificación? Interpreta la matriz de confusión correspondiente a los errores OOB. Indica los dos dígitos más fáciles de identificar y los dos más difíciles según tú solución.(El ordenador puede tardar 10 minutos en hacer el cálculo de un RF de 50 árboles). Para los alumnos que no consigan la solución en tiempo razonable, pueden cargar una solución obtenida por mí que se encuentra en el archivo “bosque.rds”. Para leer el archivo utiliza la instrucción rf = loadRDS(“bosque.rds”). Puedes contestar a las preguntas 1,2 y 3 con esta solución.
+```{r, cache=TRUE}
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(plotmo)
+library(rattle)
+set.seed(123)
+train = read.csv("digit_train.csv",header=TRUE)
+test  = read.csv("digit_test.csv",header=TRUE)
+train$digit=factor(train$digit)
+test$digit=factor(test$digit)
+r1=randomForest(digit~.,data=train,ntree=50)
+names(r1)
+print(r1)
+r1$confusion #error clasificación es el error OOB efectivamente
+r1$oob.times
+```
+Observamos que el porcentaje de error OOb es del 4.12%
+La matriz de confusión nos aporta información sobre las estimaciones de los OOB correctas y vemos que es similar con distintos dígitos. En los que menos error se produce es en el 0  (1.31%) y el 1(1.6%) y los que más, el 8(6.56%) y el 3(6.1%). Estos resultados tienen sentido, ya que el 0 es el número más diferenciado del resto gráficamente, mientras que el 8 tiene tramos gráficos comunes con otros números.
+
+Fijándonos en los números que más confunde, son el 9 con el 4, ya que 119 cuatros los ha clasificado como 9 y 99 nueves los ha clasificado como cuatros. Por otro lado, si nos fijamos en la relación entre el 0 y el 1, ha clasificado solamente 2 ceros como unos y ningún uno como ceros. Esto es porque gráficamente tienen pocas similitudes.
+
+Por tanto, los números más difíciles de identificar son el 8 y el 3, mientras que los más fáciles son el 0 y el 1.
+
+### 2. Con el RF obtenido, clasifica el conjunto “test” y obtén la matriz de confusión, proporcionando el porcentaje de error para cada dígito. Obtén el error medio de clasificación en el conjunto test. (Nota. si t es una matriz o tabla, diag(t) nos da el vector con los elementos diagonales y rowSums(t) el vector con la suma de cada fila).
+```{r, cache=TRUE}
+digpred=predict(r1, newdata = test)
+digit2=digpred
+(t1=table(test$digit,digit2))
+(t2 = addmargins(t1,c(1,2)))
+porcerror=NULL
+for (i in 1:10) {porcerror[i]=1-t2[i,i]/t2[i,11]}
+print(porcerror, digit=3)
+errormedio=mean(porcerror)
+print(errormedio, digit=3)
+
+```
+
+Una vez obtenida la matriz de confusión observamos que la predicción es considerablemente precisa.
+El porcentaje de error es menor que con los datos train. Los que presentan error más bajo siguen siendo el 0 (1.122%) y el 1 (0.793%) y las que presentan mayor error son el 8 (4.723%) y el 9 (4.955%). Vemos que sigue el mismo patrón que con los datos train y los resultados son coherentes.
+
+El error medio es 3.22%
+
+### 3. Con las instrucciones usadas arriba para representar gráficamente las imágenes de los dígitos, muestra las imágenes de los dígitos que corresponden al 9 y que el algoritmo erróneamente los ha clasificado como 4.
+```{r}
+num=which(test$digit==9 & digit2==4)
+par(mar = rep(1,4))
+xy = expand.grid(1:28, 1:28) 
+for (i in 1:12){
+z = as.numeric(test[num[i],2:785])/256 
+plot(0, 0, type = "n", xlab = "", ylab = "", axes =FALSE,
+     xlim = c(0, 28), ylim = c(0, 28), asp =1) 
+rect(xy[,1]‐1,27‐xy[,2],xy[,1],28‐xy[,2],col=gray(1‐z))}
+
+```
+
+### 4. Crea un data.frame que contenga solo las filas de los dígitos 4 y 9. Construye unRandom Forest con 150 árboles para clasificar las observaciones. Asegúrate de que los niveles de la variable digit del nuevo data.frame sean 4 y 9, utilizando de nuevo la función factor() o la función droplevels(). Proporciona la matriz de confusión e interpreta los resultados.
+```{r, cache=TRUE}
+set.seed(123)
+cn=which(train$digit==4 | train$digit==9)
+cuanuev=train[cn,]
+cuanuev$digit=factor(cuanuev$digit)
+droplevels(cuanuev)
+r2=randomForest(digit~.,data=cuanuev,ntree=150)
+r2$confusion
+```
+
+Observamos que de los dígitos que son cuatro, ha clasificado bien 5750, y ha clasificado 92 como nueve, lo que da un porcentaje de error del 1.574803%.
+Mientras que de los dígitos que son nueve, ha clasificado bien 5880, y ha clasificado 69 como cuatro, lo que da un porcentaje de error del 1.159859%.
+Esto indica que clasifica mejor los nueves que los cuatros.
+Se observa que los datos se han clasificado mucho mejor en este caso que en el primer bosque en el que tomamos todos los dígitos y 50 árboles. Esta mejora se debe al número de árboles del bosque, ya que cuantos más niveles tiene, más reduce el error.
+
+### 5. Indica los 10 píxeles (variables x) más importantes utilizadas por el RF del apartado 4 para diferenciar entre 4 y 9. Indica gráficamente a qué coordenadas corresponden en la matriz de 28x28. 
+```{r}
+varImpPlot(r2)
+imp=sort(r2$importance,decreasing = TRUE)
+imp[1:10]
+```
+
+A partir de la gráfica observamos que los píxeles más importantes para diferenciar el 4 y el 9 son, ordenados de mayora menor importancia: X211,X212,X240,X213,X238,X210,X239,X241,X237 y X184.
+
+```{r}
+
+w = as.numeric(r2$importance>109) 
+plot(0, 0, type = "n", xlab = "", ylab = "", axes =FALSE,
+     xlim = c(0, 28), ylim = c(0, 28), asp =1) 
+rect(xy[,1]‐1,27‐xy[,2],xy[,1],28‐xy[,2],col=gray(1‐w))
+```
+
+
+### 6. A partir del conjunto “test” crea el data.frame que contenga únicamente las observaciones correspondientes a los dígitos 4 y 9. Evalúa el modelo RF construido en el apartado anterior con este nuevo data.frame de test, calculando la matriz de confusión y el error de clasificación global. 
+```{r}
+cunu=which(test$digit==4 | test$digit==9)
+c4n9=test[cunu,]
+c4n9$digit=factor(c4n9$digit)
+digpred2=predict(r2, newdata = c4n9)
+(t1=table(c4n9$digit,digpred2))
+(t2 = addmargins(t1,c(1,2)))
+porcerror=NULL
+for (i in 1:2) {porcerror[i]=1-t2[i,i]/t2[i,3]}
+print(porcerror, digit=3)
+errormedio=mean(porcerror)
+print(errormedio, digit=3)
+```
+
+
+### 7.Para entender la lógica que utiliza el algoritmo de Random Forest en la clasificación de dígitos realiza el siguiente análisis. Con el data.frame obtenido en el apartado 4, calcula y dibuja el árbol de clasificación con cp = 0.01. Interpreta el árbol. 
+```{r}
+set.seed(123)
+t1 = rpart(digit ~., data =cuanuev,cp=0.01)
+names(t1)
+fancyRpartPlot(t1, caption=NULL)
+```
+
+La primera división del árbol son los dígitos cuyo pixel 212 tienen un valor menor de 29 o mayor, el 44% de las observaciones tienen ese pixel menor que 29, lo que indica que es un píxel blanco en la mayoría de los casos. Así se procede recorriendo el árbol, los píxeles que utiliza en los nodos del árbol, los más importantes, corresponderán a píxeles que en el número 4 sean oscuros y en el 9 claros o viceversa.
+Observamos que el 46% de las observaciones tienen el píxel 212 con un valor mayor que 29, el X157 menor o igual que 0.5 y el X213 mayor que 0.5, y el 93% de esos dígitos son nueves -tiene un error del 7%-. Por otro lado, el 40% de las observaciones, tienen el píxel 212 con un valor menor que 29 y el X268 menor que 122, y el 96% de esos dígitos son cuatros -tiene un error del 4%-.
+
+
+### 8. Utiliza el conjunto test creado en el apartado 4 y evalúa el árbol estimado en el apartado anterior. Calcula la matriz de confusión y el error medio. Compara los resultados con los obtenidos en el apartado 5 e interpreta las diferencias.
+```{r}
+set.seed(123)
+digpred3=predict(t1, newdata = cuanuev)
+digitp=factor(digpred3[,1]<0.5, labels=c("C","N"))
+tabla1=table(Real=cuanuev$digit,Pred=digitp)
+addmargins(tabla1)
+(errores=(tabla1[1,2]+tabla1[2,1])/sum(tabla1))*100
+```
+
+Observamos que el error obtenido es superior al error que se produce en el apartado 4, ya que los resultados son menos precisos.
+Esto se debe a la diferencia entre los dos métodos aplicados. En el árbol construido con la función rpart, hemos decidido que el cp sea 0.01, lo que nos lleva a que  el error no disminuya suficiente, mientras que en el random forest, hemos tomado 150 árboles, lo que otorga una mayor precisión. Sin embargo, también es importante señalar que el tiempo de ejecución del random forest es significativamente mayor que el del rpart, por lo que ambos tienen sus ventajas e inconvenientes.
+
+### 9. Añade al estudio realizado algún aspecto “original” que consideres de interés. El alumno debe plantear una cuestión (de interés) diferente a las formuladas y que esté relacionada con los datos del problema y resolverla. Esta pregunta es abierta y tiene como objetivo completar el análisis realizado en la tarea. Debe ser breve, la misma extensión que el resto de las preguntas.
+Voy a calcular el tiempo que se tarda en ejecutar el random forest de los 150 árboles del apartado 4 y el rpart del apartado 8 para observar directamente las diferencias en el tiempo de ejecución.
+```{r}
+trf =proc.time()
+r2=randomForest(digit~.,data=cuanuev,ntree=150)
+proc.time()-trf
+```
+
+User time es el tiempo de la CPU dedicado a la ejecución del las instrucciones del proceso, por lo que vemos que ha tardado 182.42 segundos, es decir, 3 minutos, en ejecutar el random forest. Hacemos lo mismo para el rpart:
+```{r}
+tpart =proc.time()
+t1 = rpart(digit ~., data =cuanuev,cp=0.01)
+proc.time()-tpart
+
+```
+
+Observamos que ahora el tiempo de ejecución es de 10 segundos. Lo cual nos permite cuantificar la diferencia de tiempos de ejecución y ver que se el uso de rpart es mucho más eficiente.
+
+
+### 10. Haz un resumen del análisis realizado en esta tarea, indicando las conclusiones que consideres más relevantes.
+
+  El objetivo de la tarea ha sido clasificar un data frame en el cual cada fila representaba un digito a traves de 784 píxeles, los cuales según su valor adoptaban un nivel de oscuridad distinto, desde el 0 (blanco) al 256 (negro), de manera que a través del análisis de estos píxeles se pudiese determinar a qué digito correspondía del 1 al 9.
+  En primer lugar, hemos realizado un random forest de 50 árboles con todo el data frame para clasificar todos los números. Al validar la predicción era considerablemente acertada, pero presentaba dificultades para distinguir ciertos números como el 4 y el 9.
+  En apartados posteriores nos hemos centrado en estos dos dígitos y hemos utilizado distintos métodos para predecirlos. El random forest arroja resultados precisos, pero con un tiempo de ejecución elevado, mientras que el rpart es menos preciso pero mucho más rápido, y si hubiesemos reducido el valor del criterio de parada (cp), podríamos haber afinado más los resultados.
+  Como conclusión, el random forest es una herramienta muy potente de análisis de datos que permite clasificar numerosos data frames, pero en aquellos que son tan grandes como el que hemos utilizado o mayores, requiere una gran carga computacional.
